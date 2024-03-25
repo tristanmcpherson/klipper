@@ -48,8 +48,8 @@ analog_in_event(struct timer *timer)
     } else {
         a->invalid_count++;
         if (a->invalid_count >= a->range_check_count) {
-            try_shutdown("ADC out of range");
-            a->invalid_count = 0;
+            try_shutdown("ADC value out of range. Tested range: [%d, %d], actual: %d", a->min_value, a->max_value, a->value);
+            a->invalid_count = 0
         }
     }
     sched_wake_task(&analog_wake);
