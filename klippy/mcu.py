@@ -607,13 +607,15 @@ class MCU:
         if clock is not None:
             self._shutdown_clock = self.clock32_to_clock64(clock)
         self._shutdown_msg = msg = params['static_string_id']
-        logging.info("MCU '%s' %s: %s\n%s\n%s", self._name, params['#name'],
-                     self._shutdown_msg, self._clocksync.dump_debug(),
+        self._additional_shutdown_msg = params['extra']
+        logging.info("MCU '%s' %s: %s - %s\n%s\n%s", self._name, params['#name'],
+                     self._shutdown_msg, ,self._additional_shutdown_msg,
+                     self._clocksync.dump_debug(),
                      self._serial.dump_debug())
         prefix = "MCU '%s' shutdown: " % (self._name,)
         if params['#name'] == 'is_shutdown':
             prefix = "Previous MCU '%s' shutdown: " % (self._name,)
-        self._printer.invoke_async_shutdown(prefix + msg + error_help(msg))
+        self._printer.invoke_async_shutdown(prefix + msg + error_help(msg) + self._additional_shutdown_msg)
     def _handle_starting(self, params):
         if not self._is_shutdown:
             self._printer.invoke_async_shutdown("MCU '%s' spontaneous restart"

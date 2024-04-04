@@ -4,6 +4,8 @@
 //
 // This file may be distributed under the terms of the GNU GPLv3 license.
 
+#include <stdio.h>
+#include <string.h>
 #include <setjmp.h> // setjmp
 #include "autoconf.h" // CONFIG_*
 #include "basecmd.h" // stats_update
@@ -15,12 +17,16 @@
 #include "sched.h" // sched_check_periodic
 #include "stepper.h" // stepper_event
 
+#define SHUTDOWN_REASON_EXTRA_MAX 128
+
 static struct timer periodic_timer, sentinel_timer, deleted_timer;
 
 static struct {
     struct timer *timer_list, *last_insert;
     int8_t tasks_status;
     uint8_t shutdown_status, shutdown_reason;
+    char shutdown_reason_extra[SHUTDOWN_REASON_EXTRA_MAX];
+
 } SchedStatus = {.timer_list = &periodic_timer, .last_insert = &periodic_timer};
 
 
@@ -286,6 +292,7 @@ sched_clear_shutdown(void)
         // Ignore attempt to clear shutdown if still processing shutdown
         return;
     SchedStatus.shutdown_status = 0;
+    strcpy(SchedStatus.shutdown_reason_extra, "");
 }
 
 // Invoke all shutdown functions (as declared by DECL_SHUTDOWN)
@@ -296,6 +303,8 @@ run_shutdown(int reason)
     uint32_t cur = timer_read_time();
     if (!SchedStatus.shutdown_status)
         SchedStatus.shutdown_reason = reason;
+    if (!SchedStatus.shutdown_reason_extra[0])
+        strcpy(SchedStatus.shutdown_reason_extra, "");
     SchedStatus.shutdown_status = 2;
     sched_timer_reset();
     extern void ctr_run_shutdownfuncs(void);
@@ -303,8 +312,8 @@ run_shutdown(int reason)
     SchedStatus.shutdown_status = 1;
     irq_enable();
 
-    sendf("shutdown clock=%u static_string_id=%hu", cur
-          , SchedStatus.shutdown_reason);
+    sendf("shutdown clock=%u static_string_id=%hu extra=%s", cur
+            , SchedStatus.shutdown_reason, SchedStatus.shutdown_reason_extra);
 }
 
 // Report the last shutdown reason code
@@ -322,6 +331,18 @@ sched_try_shutdown(uint_fast8_t reason)
         sched_shutdown(reason);
 }
 
+void __attribute__((format(printf, 2, 3)))
+sched_try_shutdownf(uint_fast8_t reason, const char *fmt, ...) {
+    if (!SchedStatus.shutdown_status) {
+        va_list args;
+        va_start(args, fmt);
+        vsnprintf(SchedStatus.shutdown_reason_extra, SHUTDOWN_REASON_EXTRA_MAX, fmt, args);
+        va_end(args);
+
+        sched_shutdown(reason);
+    }
+}
+
 static jmp_buf shutdown_jmp;
 
 // Force the machine to immediately run the shutdown handlers
@@ -331,7 +352,6 @@ sched_shutdown(uint_fast8_t reason)
     irq_disable();
     longjmp(shutdown_jmp, reason);
 }
-
 
 /****************************************************************
  * Startup

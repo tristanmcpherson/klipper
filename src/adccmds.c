@@ -48,7 +48,7 @@ analog_in_event(struct timer *timer)
     } else {
         a->invalid_count++;
         if (a->invalid_count >= a->range_check_count) {
-            try_shutdown("ADC out of range");
+            try_shutdownf("ADC out of range", "Range %d-%d, value %d", a->min_value, a->max_value, a->value);
             a->invalid_count = 0;
         }
     }

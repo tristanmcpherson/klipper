@@ -1,0 +1,6 @@
+{
+    "files.associations": {
+        "autoconf.h": "c",
+        "setjmp.h": "c"
+    }
+}
